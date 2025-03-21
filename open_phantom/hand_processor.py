@@ -8,7 +8,7 @@ import mediapipe as mp
 
 from tqdm import tqdm
 from utils.visualizations import *
-from phantom.robot_manager import RobotManager
+from robot_manager import RobotManager
 # from diffusers import StableDiffusionInpaintPipeline
 
 
@@ -172,59 +172,22 @@ class HandProcessor:
         return np.array(dense_vertices), np.array(faces)
     
     def _icp_registration(self, cloud: np.ndarray, vertices: np.ndarray) -> np.ndarray:
-        # Normalize both point clouds to handle scale differences
-        cloud_centroid = np.mean(cloud, axis=0)
-        vertices_centroid = np.mean(vertices, axis=0)
-        
-        cloud_centered = cloud - cloud_centroid
-        vertices_centered = vertices - vertices_centroid
-        
-        cloud_scale = np.max(np.linalg.norm(cloud_centered, axis=1))
-        vertices_scale = np.max(np.linalg.norm(vertices_centered, axis=1))
-        
-        cloud_normalized = cloud_centered / cloud_scale
-        vertices_normalized = vertices_centered / vertices_scale
-        
-        # Create Open3D point clouds
         source = o3d.geometry.PointCloud()
-        source.points = o3d.utility.Vector3dVector(vertices_normalized)
+        source.points = o3d.utility.Vector3dVector(vertices)
         
         target = o3d.geometry.PointCloud()
-        target.points = o3d.utility.Vector3dVector(cloud_normalized)
+        target.points = o3d.utility.Vector3dVector(cloud)
         
-        # Optional: Downsample for better performance
-        source = source.voxel_down_sample(voxel_size=0.01)
-        target = target.voxel_down_sample(voxel_size=0.01)
-        
-        # Initial identity transformation
-        trans_init = np.eye(4)
-        
-        # Run ICP with better parameters
         result = o3d.pipelines.registration.registration_icp(
             source,
             target, 
-            max_correspondence_distance=0.2,  # Increased for better matching
-            init=trans_init,
-            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
-            criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=100)
+            max_correspondence_distance=0.05,
+            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
         )
         
-        # Create denormalization transformation
-        denorm_transform = np.eye(4)
-        denorm_transform[:3, :3] *= (cloud_scale / vertices_scale)
+        transformation = result.transformation
         
-        # Combine transformations
-        transform_to_origin = np.eye(4)
-        transform_to_origin[:3, 3] = -vertices_centroid
-        
-        transform_from_origin = np.eye(4)
-        transform_from_origin[:3, 3] = cloud_centroid
-        
-        final_transform = np.matmul(transform_from_origin, 
-                                np.matmul(denorm_transform, 
-                                            np.matmul(result.transformation, transform_to_origin)))
-        
-        return final_transform
+        return transformation
     
     def _refine_landmarks(self, landmarks: list, transform: int, image_dims: tuple):
         width, height = image_dims

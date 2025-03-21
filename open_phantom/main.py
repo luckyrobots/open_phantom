@@ -1,6 +1,6 @@
 import os
 
-from phantom.hand_processor import HandProcessor
+from hand_processor import HandProcessor
 
 
 def main():
