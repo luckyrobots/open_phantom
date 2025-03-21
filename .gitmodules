@@ -1,0 +1,6 @@
+[submodule "external/sam2"]
+	path = external/sam2
+	url = https://github.com/facebookresearch/sam2.git
+[submodule "external/ml-depth-pro"]
+	path = external/ml-depth-pro
+	url = https://github.com/apple/ml-depth-pro.git
