@@ -45,7 +45,7 @@ Unlike the original implementation which relies on [MANO](https://mano.is.tue.mp
 
 ```bash
 # Clone the repository with submodules
-git clone https://github.com/yourusername/open-phantom.git
+git clone https://github.com/luckyrobots/open_phantom.git
 cd open-phantom
 
 # Create and activate conda environment
