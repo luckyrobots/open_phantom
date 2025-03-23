@@ -1,4 +1,4 @@
-# Open Phantom: Training Robots Using Only Human Videos
+# Open Phantom: Collecting Data From Robots Using Only Human Videos
 
 ## Overview
 
@@ -64,6 +64,9 @@ cd ../..
 cd external/ml-depth-pro
 pip install -e .
 cd ../..
+
+# Verify installation
+python -c "import mediapipe; import open3d; print('Dependencies successfully installed!')"
 ```
 
 ## Usage
