@@ -6,24 +6,24 @@ Open Phantom is a fully open-source implementation of the approach described in 
 
 ## Key Features
 
-- **Camera-Only Data Collection**: Capture hand movements using any standard RGB camera
-- **3D Hand Tracking**: Convert 2D video to 3D hand poses using MediaPipe landmarks
-- **Advanced Depth Estimation**: Generate depth maps from monocular RGB input using ml-depth-pro
-- **Hand Segmentation**: Precisely isolate hand regions with Meta's SAM2 for better depth estimation
-- **ICP Registration**: Align hand mesh with depth point cloud for improved 3D accuracy
-- **Anatomical Constraints**: Apply natural hand constraints to ensure realistic movements
-- **Robot Action Extraction**: Transform hand poses into robot control parameters (position, orientation, gripper width)
-- **Visualization Pipeline**: Debug-friendly visualization of each processing stage
-- **Commercial-Friendly**: Built entirely with open-source, commercially usable components
+* **Camera-Only Data Collection** : Capture hand movements using any standard RGB camera
+* **3D Hand Tracking** : Convert 2D video to 3D hand poses using MediaPipe landmarks
+* **Advanced Depth Estimation** : Generate depth maps from monocular RGB input using ml-depth-pro
+* **Hand Segmentation** : Precisely isolate hand regions with Meta's SAM2 for better depth estimation
+* **ICP Registration** : Align hand mesh with depth point cloud for improved 3D accuracy
+* **Anatomical Constraints** : Apply natural hand constraints to ensure realistic movements
+* **Robot Action Extraction** : Transform hand poses into robot control parameters (position, orientation, gripper width)
+* **Visualization Pipeline** : Debug-friendly visualization of each processing stage
+* **Commercial-Friendly** : Built entirely with open-source, commercially usable components
 
 ## Project Status
 
-⚠️ ******Work in Progress******: Open Phantom is currently under active development. Core functionality is implemented, but the codebase is still being refined and tested. We welcome early adopters and contributors to help improve the project.
+⚠️  **Work in Progress** : Open Phantom is currently under active development.
 
 Known limitations:
 
 * ICP registration still being optimized for better alignment
-* Depth estimation quality varies with lighting conditions
+* Depth estimation with ml-depth-pro is not implemented yet
 * Performance optimizations needed for real-time processing
 
 ## Background
@@ -34,12 +34,12 @@ Unlike the original implementation which relies on [MANO](https://mano.is.tue.mp
 
 ## How It Works
 
-1. **Video Capture**: Record video of your hand performing a task using a standard RGB camera
-2. **Hand Tracking**: Track hand landmarks in the video
-3. **Depth Estimation**: Estimate depth information from the monocular RGB input
-4. **Segmentation**: Segment the hand using SAM2 (Segment Anything Model 2)
-5. **3D Reconstruction**: Create a 3D hand model from the landmarks and depth information
-6. **Robot Parameters**: Extract position, orientation, and gripper parameters for robot control
+1. **Video Capture** : Record video of your hand performing a task using a standard RGB camera
+2. **Hand Tracking** : Track hand landmarks in the video
+3. **Depth Estimation** : Estimate depth information from the monocular RGB input
+4. **Segmentation** : Segment the hand using SAM2 (Segment Anything Model 2)
+5. **3D Reconstruction** : Create a 3D hand model from the landmarks and depth information
+6. **Robot Parameters** : Extract position, orientation, and gripper parameters for robot control
 
 ## Installation
 
@@ -50,7 +50,7 @@ cd open-phantom
 
 # Create and activate conda environment
 conda env create -f environment.yml
-conda activate open-phantom
+conda activate open_phantom
 
 # Initialize and update submodules
 git submodule update --init --recursive
@@ -78,20 +78,71 @@ python open_phantom/main.py
 
 ## Contributing
 
-We welcome contributions from the community! This project is intended as a resource for researchers and developers interested in robot learning from human demonstrations. Whether you're improving the hand tracking, depth estimation, or adding new features, your contributions help advance the goal of more accessible robot learning.
+### Find an Issue
+
+* Browse [GitHub Issues](https://github.com/luckyrobots/open_phantom/issues) or create a new one
+* Comment on issues you plan to work on
+
+### Setup & Branch
+
+```bash
+# Fork and clone the repository
+git clone https://github.com/luckyrobots/open_phantom.git
+cd open-phantom
+
+# Add upstream remote and stay updated
+git remote add upstream https://github.com/luckyrobots/open_phantom.git
+git pull upstream main
+
+# Create a dedicated branch for your work
+git checkout -b fix-issue-42  # Use descriptive names
+```
+
+### Set Up Pre-commit Hooks
+
+```bash
+# Install pre-commit if you don't have it
+pip install pre-commit
+
+# Set up the git hooks
+pre-commit install
+```
+
+Pre-commit will automatically check your code style, formatting, and other quality standards before each commit. If any checks fail, it will prevent the commit and show what needs to be fixed.
+
+### Make Changes
+
+* Write clean, commented code
+* Keep commits focused and with clear messages
+* Test your changes thoroughly
+* When you commit, pre-commit hooks will run automatically
+
+### Submit a Pull Request
+
+* Push your branch: `git push origin fix-issue-42`
+* Create PR on GitHub pointing to `main` branch
+* Include clear title (e.g., "Fix #42: Improve Hand Tracking")
+* Briefly describe changes and reference related issues
+* Respond to reviewer feedback
+
+### Guidelines
+
+* Document code with docstrings
+* Be respectful in all interactions
+* Give credit where due
 
 ## Citation
 
 If you use Open Phantom in your research, please cite the original Phantom paper:
 
-<pre>
+```
 @article{lepert2025phantom,
   title={Phantom: Training Robots Without Robots Using Only Human Videos},
   author={Lepert, Marion and Fang, Jiaying and Bohg, Jeannette},
   journal={arXiv preprint arXiv:2503.00779},
   year={2025}
 }
-</pre>
+```
 
 ## License
 
