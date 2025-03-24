@@ -1,23 +1,30 @@
 import os
 import time
-
 import cv2
-import depth_pro
-import mediapipe as mp
+import torch
 import numpy as np
 import open3d as o3d
-import torch
-from PIL import Image
-from robot_manager import RobotManager
-from sam2.sam2_image_predictor import SAM2ImagePredictor
+import mediapipe as mp
+
 from tqdm import tqdm
+from collections import deque
 from utils.visualizations import *
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
-class HandProcessor:
+# TODO: Optimize these constants for better results
+HAND_WIDTH_MM = 90.0  # Average width of male hand in mm
+CLOUD_Z_SCALE = 5.0
+# Maximum expected distance between human thumb and index finger in mm when fully extended.
+MAXIMUM_HAND_WIDTH_MM = 100.0
+
+
+class ProcessHand:
     def __init__(self) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        # Initialize MediaPipe Hands for hand detection
+        print("Loading MediaPipe Hands model...")
         self.mp_hands = mp.solutions.hands
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_drawing_styles = mp.solutions.drawing_styles
@@ -28,10 +35,9 @@ class HandProcessor:
             static_image_mode=False,
         )
 
-        # NOTE: Look into better depth estimation models
         # Initialize MiDaS for depth estimation
         print("Loading MiDaS model...")
-        self.midas = torch.hub.load("intel-isl/MiDaS", "DPT_Hybrid")
+        self.midas = torch.hub.load("intel-isl/MiDaS", "DPT_Large")
         self.midas.to(self.device)
         self.midas.eval()
 
@@ -45,11 +51,17 @@ class HandProcessor:
             "facebook/sam2-hiera-large"
         )
 
+        self.gripper_width_buffer = deque(maxlen=100)
+
+    """
+    Create a segmentation mask over the hand using SAM2 model
+    """
+
     def _create_mask(self, frame: np.ndarray, landmarks: list) -> np.ndarray:
         height, width = frame.shape[:2]
+        # Convert image to RGB for SAM2 model
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Set image in SAM2 predictor
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
             self.sam2_predictor.set_image(frame_rgb)  # Set image for prediction
 
@@ -61,7 +73,7 @@ class HandProcessor:
 
             input_points = np.array(points)
 
-            # Predict mask with point prompts
+            # Predict mask using point prompts
             masks, _, _ = self.sam2_predictor.predict(
                 point_coords=input_points,  # Pass the points as prompts
                 point_labels=np.ones(
@@ -79,7 +91,6 @@ class HandProcessor:
     Estimate depth map using MiDaS model
     """
 
-    # TODO: Swap MiDaS for ml-depth-pro model
     def _estimate_depth(self, image: np.ndarray) -> tuple:
         img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -97,7 +108,7 @@ class HandProcessor:
                 align_corners=False,
             ).squeeze()
 
-        # Convert to numpy and normalize to 0-255 for visualization
+        # Convert to numpy and normalize for visualization
         depth_map = prediction.cpu().numpy()
         depth_min = depth_map.min()
         depth_max = depth_map.max()
@@ -105,11 +116,17 @@ class HandProcessor:
 
         return depth_map, depth_map_normalized.astype(np.uint8)
 
-    # TODO: Look into better depth scaling
-    def _create_cloud(self, depth_map: np.ndarray, hand_mask: np.ndarray) -> np.ndarray:
+    """
+    Create a point cloud from combining depth map and segmented mask
+    by back-projecting to 3D using camera intrinsics and depth values
+    """
+
+    def _create_cloud(
+        self, depth_map: np.ndarray, segmented_mask: np.ndarray
+    ) -> np.ndarray:
         focal_x, focal_y, center_x, center_y = self.camera_intrinsics
 
-        v_coords, u_coords = np.where(hand_mask > 0)
+        v_coords, u_coords = np.where(segmented_mask > 0)
         z_values = depth_map[v_coords, u_coords]
 
         # Filter out zero depth values
@@ -118,7 +135,7 @@ class HandProcessor:
         v_coords = v_coords[valid_indices]
         z_values = z_values[valid_indices]
 
-        z_metric = z_values * 0.5
+        z_metric = z_values * HAND_WIDTH_MM * CLOUD_Z_SCALE / depth_map.max()
 
         # Back-project to 3D using camera intrinsics
         x_values = (u_coords - center_x) * z_metric / focal_x
@@ -128,15 +145,25 @@ class HandProcessor:
 
         return points
 
-    # TODO: Look into better depth scaling
+    """
+    Create hand mesh from hand landmarks
+    """
+
     def _create_mesh(self, landmarks: list, image_dims: tuple) -> np.ndarray:
         width, height = image_dims
 
+        # Extract just z values to understand their range
+        z_values = [landmark.z for landmark in landmarks.landmark]
+        z_min = min(z_values)
+        z_max = max(z_values)
+
         vertices = []
         for landmark in landmarks.landmark:
-            vertices.append(
-                [landmark.x * width, landmark.y * height, landmark.z * width]
-            )
+            # Scale z to same range as HAND_WIDTH_MM
+            normalized_z = (landmark.z - z_min) / (z_max - z_min + 1e-6)
+            scaled_z = normalized_z * HAND_WIDTH_MM
+
+            vertices.append([landmark.x * width, landmark.y * height, scaled_z])
 
         # Define faces (triangles) connecting landmarks
         faces = [
@@ -178,7 +205,10 @@ class HandProcessor:
 
         return np.array(dense_vertices), np.array(faces)
 
-    # TODO: Improve ICP registration for better alignment
+    """
+    Align hand mesh to point cloud using ICP for accurate 3D reconstruction
+    """
+
     def _icp_registration(self, cloud: np.ndarray, vertices: np.ndarray) -> np.ndarray:
         source = o3d.geometry.PointCloud()
         source.points = o3d.utility.Vector3dVector(vertices)
@@ -200,27 +230,39 @@ class HandProcessor:
         result = o3d.pipelines.registration.registration_icp(
             source,
             target,
-            max_correspondence_distance=0.1,  # Increased distance
+            max_correspondence_distance=0.05,
             init=trans_init,  # Initial transformation
             estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
             criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
                 max_iteration=100
-            ),  # Increased iterations
+            ),
         )
 
         transformation = result.transformation
 
         return transformation
 
-    # TODO: Look into better depth scaling
-    def _refine_landmarks(self, landmarks: list, transform: int, image_dims: tuple):
+    """
+    Refine landmarks based on the icp transformation
+    """
+
+    def _refine_landmarks(
+        self, landmarks: list, transform: int, image_dims: tuple
+    ) -> list:
         width, height = image_dims
+
+        # Extract z range for normalization, similar to _create_mesh
+        z_values = [landmark.z for landmark in landmarks.landmark]
+        z_min = min(z_values)
+        z_max = max(z_values)
 
         refined_landmarks = []
         for landmark in landmarks.landmark:
-            point = np.array(
-                [landmark.x * width, landmark.y * height, landmark.z * width, 1.0]
-            )
+            # Use consistent scaling with _create_mesh
+            normalized_z = (landmark.z - z_min) / (z_max - z_min + 1e-6)
+            scaled_z = normalized_z * HAND_WIDTH_MM
+
+            point = np.array([landmark.x * width, landmark.y * height, scaled_z, 1.0])
 
             # Apply transformation to 3D point
             transformed = np.dot(transform, point)
@@ -228,6 +270,7 @@ class HandProcessor:
 
         return refined_landmarks
 
+    # TODO: Implement better constraints that limit last joint of each finger to a single DOF
     def _apply_constraints(self, landmarks: list):
         constrained = np.array(landmarks)
 
@@ -236,8 +279,7 @@ class HandProcessor:
         thumb_indices = [1, 2, 3, 4]
         index_indices = [5, 6, 7, 8]
 
-        # Constrain the last two joints of thumb and index finger
-        # as mentioned in the paper
+        # Constrain the last two joints of thumb and index finger as per the paper
         for finger_indices in [thumb_indices, index_indices]:
             # Get the last three joints (two segments)
             if len(finger_indices) >= 3:
@@ -250,8 +292,7 @@ class HandProcessor:
                 dir1 = joint2 - joint1
                 dir1 = dir1 / np.linalg.norm(dir1)
 
-                # Instead of full ball joint, constrain the last joint's direction
-                # to follow similar direction as the previous segment
+                # Instead of full ball joint, constrain last joint's direction to follow previous segment
                 ideal_dir = dir1.copy()
                 actual_dir = joint3 - joint2
                 actual_length = np.linalg.norm(actual_dir)
@@ -265,8 +306,14 @@ class HandProcessor:
 
         return constrained
 
-    def _get_robot_params(self, refined_landmarks):
-        # Extract keypoints
+    """
+    Extract robot parameters from refined landmarks:
+    1. Target Position: Midpoint between thumb tip and index tip
+    2. Target Orientation: Normal to the best-fitting plane of thumb and index finger
+    3. Gripper Width: Distance between thumb tip and index tip
+    """
+
+    def _get_robot_params(self, refined_landmarks: list) -> tuple:
         landmarks = np.array(refined_landmarks)
 
         # Define indices for specific parts of the hand
@@ -293,54 +340,52 @@ class HandProcessor:
         # Use SVD to find the normal to the best-fitting plane
         u, s, vh = np.linalg.svd(centered_points)
         # The normal is the last right singular vector
-        normal = vh[2, :]
-
-        # Ensure normal is a unit vector
-        normal = normal / np.linalg.norm(normal)
+        plane_normal = vh[2, :]
+        plane_normal = plane_normal / np.linalg.norm(plane_normal)
 
         # Fit a principal axis through thumb points
-        thumb_centroid = np.mean(thumb_points, axis=0)
-        thumb_centered = thumb_points - thumb_centroid
+        # Using direction from thumb base to tip for more robustness
+        thumb_direction = landmarks[thumb_tip_idx] - landmarks[thumb_indices[0]]
+        thumb_axis = thumb_direction / np.linalg.norm(thumb_direction)
 
-        # Use SVD again to find direction of maximum variance (principal axis)
-        u, s, vh = np.linalg.svd(thumb_centered)
-        principal_axis = vh[0, :]  # First singular vector
+        # Ensure thumb_axis is orthogonal to plane_normal
+        thumb_axis = thumb_axis - np.dot(thumb_axis, plane_normal) * plane_normal
+        thumb_axis = thumb_axis / np.linalg.norm(thumb_axis)
 
-        # Ensure principal axis is a unit vector
-        principal_axis = principal_axis / np.linalg.norm(principal_axis)
+        # Compute third axis as cross product to create orthogonal frame
+        cross_axis = np.cross(plane_normal, thumb_axis)
+        cross_axis = cross_axis / np.linalg.norm(cross_axis)
 
-        # Construct orthogonal vectors for orientation matrix
-        z_axis = normal  # Normal to the plane
-        x_axis = principal_axis  # Along the thumb
-
-        # Ensure x_axis is orthogonal to z_axis
-        x_axis = x_axis - np.dot(x_axis, z_axis) * z_axis
-        x_axis = x_axis / np.linalg.norm(x_axis)
-
-        # Compute y_axis as cross product to ensure orthogonality
-        y_axis = np.cross(z_axis, x_axis)
-
-        # Create rotation matrix
-        rotation_matrix = np.column_stack([x_axis, y_axis, z_axis])
+        # Create rotation matrix that aligns with the paper's description
+        # z-axis as normal, x-axis along thumb direction
+        rotation_matrix = np.column_stack([thumb_axis, cross_axis, plane_normal])
 
         # 3. Calculate gripper width
         gripper_width = np.linalg.norm(thumb_tip - index_tip)
-
-        # Apply percentile threshold to mitigate slippage (as mentioned in the paper)
-        # Store gripper widths in a buffer to compute percentiles
-        if not hasattr(self, "gripper_width_buffer"):
-            self.gripper_width_buffer = []
-
         self.gripper_width_buffer.append(gripper_width)
-        # Keep only the last 100 values
-        if len(self.gripper_width_buffer) > 100:
-            self.gripper_width_buffer.pop(0)
 
-        # Apply 20th percentile threshold
+        # Apply 20th percentile threshold as specified in the paper
         if len(self.gripper_width_buffer) > 5:  # Need enough samples
             min_width = np.percentile(self.gripper_width_buffer, 20)
             if gripper_width < min_width:
-                gripper_width = min_width
+                gripper_width = 0.0  # Fully closed gripper when below threshold
+            else:
+                # Scale gripper_width to robot's specific range
+                gripper_width = min(1.0, gripper_width / MAXIMUM_HAND_WIDTH_MM)
+
+        # Convert from camera frame to robot frame
+        # Note: This requires the extrinsic matrix from camera to robot
+        # If extrinsics are available, uncomment and use this code:
+        # if hasattr(self, "camera_to_robot_transform"):
+        #     # Convert position to homogeneous coordinates
+        #     pos_homogeneous = np.append(position, 1.0)
+        #     # Apply transformation
+        #     robot_pos_homogeneous = np.dot(self.camera_to_robot_transform, pos_homogeneous)
+        #     position = robot_pos_homogeneous[:3]
+        #
+        #     # Convert rotation (special orthogonal transformation)
+        #     rotation_in_robot_frame = np.dot(self.camera_to_robot_transform[:3, :3], rotation_matrix)
+        #     rotation_matrix = rotation_in_robot_frame
 
         return position, rotation_matrix, gripper_width
 
@@ -483,16 +528,16 @@ class HandProcessor:
             # Process if hand is detected
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
-                    hand_mask = self._create_mask(frame, hand_landmarks)
+                    segmented_mask = self._create_mask(frame, hand_landmarks)
                     mask_overlay = frame.copy()
-                    mask_overlay[hand_mask > 0] = [0, 0, 255]  # Red color for mask
+                    mask_overlay[segmented_mask > 0] = [0, 0, 255]  # Red color for mask
                     segmented_frame = cv2.addWeighted(frame, 0.7, mask_overlay, 0.3, 0)
 
                     depth_map, depth_vis = self._estimate_depth(frame)
                     depth_colored = cv2.applyColorMap(depth_vis, cv2.COLORMAP_JET)
                     depth_frame = depth_colored.copy()
 
-                    cloud = self._create_cloud(depth_map, hand_mask)
+                    cloud = self._create_cloud(depth_map, segmented_mask)
 
                     hand_vertices, hand_faces = self._create_mesh(
                         hand_landmarks, (width, height)
