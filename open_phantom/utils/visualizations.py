@@ -2,8 +2,10 @@ import cv2
 import numpy as np
 
 
-def visualize_mesh(frame, hand_vertices, faces):
-    """Visualize the hand mesh on the frame"""
+def visualize_mesh(
+    frame: np.ndarray, hand_vertices: np.ndarray, faces: np.ndarray
+) -> np.ndarray:
+
     mesh_vis = frame.copy()
     height, width = frame.shape[:2]
 
@@ -76,7 +78,10 @@ def visualize_mesh(frame, hand_vertices, faces):
     return mesh_vis
 
 
-def visualize_registration(cloud, vertices, icp_transform):
+def visualize_registration(
+    cloud: np.ndarray, vertices: np.ndarray, icp_transform: np.ndarray
+) -> np.ndarray:
+
     height, width = 480, 640  # Fixed size visualization
     reg_vis = np.ones((height, width, 3), dtype=np.uint8) * 255  # White background
 
@@ -91,7 +96,7 @@ def visualize_registration(cloud, vertices, icp_transform):
     max_vals = np.max(all_points_2d, axis=0)
 
     # Function to scale points to fit visualization
-    def scale_point(point):
+    def scale_point(point: np.ndarray) -> tuple:
         scaled = (point - min_vals) / (max_vals - min_vals)
         x = int(scaled[0] * view_width) + margin
         y = int(scaled[1] * view_height) + margin
@@ -177,9 +182,12 @@ def visualize_registration(cloud, vertices, icp_transform):
 
 
 def visualize_constraints(
-    frame, refined_landmarks, constrained_landmarks, camera_intrinsics
-):
-    """Visualize before and after applying anatomical constraints"""
+    frame: np.ndarray,
+    refined_landmarks: list,
+    constrained_landmarks: np.ndarray,
+    camera_intrinsics: tuple,
+) -> np.ndarray:
+
     constraints_vis = frame.copy()
     height, width = frame.shape[:2]
     focal_x, focal_y, center_x, center_y = camera_intrinsics
@@ -299,9 +307,13 @@ def visualize_constraints(
 
 
 def visualize_robot_params(
-    frame, position, orientation_matrix, gripper_width, camera_intrinsics
-):
-    """Visualize robot parameters (position, orientation matrix, gripper width)"""
+    frame: np.ndarray,
+    position: np.ndarray,
+    orientation_matrix: np.ndarray,
+    gripper_width: float,
+    camera_intrinsics: tuple,
+) -> np.ndarray:
+
     robot_vis = frame.copy()
     height, width = frame.shape[:2]
     focal_x, focal_y, center_x, center_y = camera_intrinsics
