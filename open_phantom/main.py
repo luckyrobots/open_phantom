@@ -1,10 +1,13 @@
 import os
 
-from hand_processor import HandProcessor
+from process_hand import ProcessHand
+from robot_manager import RobotManager
+
+# TODO: Move record_video and process_video here
 
 
-def main():
-    processor = HandProcessor()
+def main() -> None:
+    processor = ProcessHand()
 
     record_option = input("Record a new video? (y/n): ")
 

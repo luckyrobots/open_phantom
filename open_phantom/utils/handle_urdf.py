@@ -81,7 +81,7 @@ def handle_urdf(urdf_path: str) -> str:
         print(f"Invalid URDF path: {urdf_path}")
         return None
 
-    # FIXME: Add check to see if URDF needs to be processed
+    # TODO: Add check to see if URDF needs to be processed
 
     try:
         urdf_dir = os.path.dirname(urdf_path)

@@ -1,8 +1,8 @@
 import os
-
 import cv2
 import numpy as np
 import pybullet as p
+
 from utils.handle_urdf import handle_urdf
 
 
@@ -21,7 +21,7 @@ class RobotManager:
         self.img_width = int(self.cx * 2)
         self.img_height = int(self.cy * 2)
 
-    # Load the robot URDF into PyBullet
+    # Load robot URDF into PyBullet
     def _load_robot(self, robot_urdf: str) -> int:
         try:
             robot_id = p.loadURDF(
@@ -67,7 +67,7 @@ class RobotManager:
         pass
 
     # Render the robot in some scene using some camera parameters
-    def render_robot(self, bg_image=None, camera_params=None):
+    def render_robot(self, bg_image=None, camera_params=None) -> np.ndarray:
         assert self.robot_id >= 0, "Robot not properly loaded"
 
         # Set up camera parameters
