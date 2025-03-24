@@ -8,7 +8,7 @@ Open Phantom is a fully open-source implementation of the approach described in 
 
 * **Camera-Only Data Collection** : Capture hand movements using any standard RGB camera
 * **3D Hand Tracking** : Convert 2D video to 3D hand poses using MediaPipe landmarks
-* **Advanced Depth Estimation** : Generate depth maps from monocular RGB input using ml-depth-pro
+* **Advanced Depth Estimation** : Generate depth maps from monocular RGB input using MiDaS
 * **Hand Segmentation** : Precisely isolate hand regions with Meta's SAM2 for better depth estimation
 * **ICP Registration** : Align hand mesh with depth point cloud for improved 3D accuracy
 * **Anatomical Constraints** : Apply natural hand constraints to ensure realistic movements
@@ -22,8 +22,8 @@ Open Phantom is a fully open-source implementation of the approach described in 
 
 Known limitations:
 
-* ICP registration still being optimized for better alignment
-* Depth estimation with ml-depth-pro is not implemented yet
+* In-painting human hand
+* Overlaying robot arm
 * Performance optimizations needed for real-time processing
 
 ## Background
@@ -57,11 +57,6 @@ git submodule update --init --recursive
 
 # Install dependencies for SAM2
 cd external/sam2
-pip install -e .
-cd ../..
-
-# Install dependencies for ML-Depth-Pro
-cd external/ml-depth-pro
 pip install -e .
 cd ../..
 
@@ -152,7 +147,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 * This project is based on the research presented in "Phantom: Training Robots Without Robots Using Only Human Videos"
 * We use Meta's SAM2 (Segment Anything Model 2) for hand segmentation
-* ML-Depth-Pro from Apple provides advanced depth estimation
 
 ## Disclaimer
 
