@@ -1,4 +1,5 @@
 import os
+import re
 import xml.dom.minidom as minidom
 import xml.etree.ElementTree as ET
 
@@ -11,23 +12,25 @@ If the mesh file is not found, the original path is used.
 """
 
 
-def fix_path(path: str, urdf_dir: str) -> str:
+def fix_path(path: str, robot_base_dir: str) -> str:
     if path.startswith("package://"):
         parts = path[len("package://") :].split("/", 1)
         if len(parts) == 2:
             package_name, rel_path = parts
 
-            # Try potential locations for the mesh
+            # Try potential locations for the mesh with relative paths
             potential_paths = [
-                os.path.join(urdf_dir, rel_path),
-                os.path.join(urdf_dir, "../meshes", rel_path),
-                os.path.join(urdf_dir, f"../{package_name}", rel_path),
-                os.path.join(urdf_dir, "../..", rel_path),
+                os.path.join("meshes", rel_path),
+                os.path.join(package_name, rel_path),
+                rel_path,
             ]
 
-            for possible_path in potential_paths:
-                if os.path.exists(possible_path):
-                    return possible_path
+            for possible_rel_path in potential_paths:
+                # Check if file exists with this relative path
+                full_path = os.path.join(robot_base_dir, possible_rel_path)
+                if os.path.exists(full_path):
+                    # Return the relative path from urdf directory
+                    return os.path.join("..", possible_rel_path)
 
         print(f"Failed to find mesh for package path: {path}")
 
@@ -76,16 +79,13 @@ def format_xml(root: ET.Element, fixed_path: str) -> None:
 
 
 def handle_urdf(urdf_path: str) -> str:
-    # Check if URDF is valid
-    if not os.path.exists(urdf_path):
-        print(f"Invalid URDF path: {urdf_path}")
-        return None
-
-    # TODO: Add check to see if URDF needs to be processed
+    assert os.path.exists(urdf_path), f"Invalid URDF path: {urdf_path}"
 
     try:
         urdf_dir = os.path.dirname(urdf_path)
-        root, fixed_path = fix_mesh_paths(urdf_path, urdf_dir)
+        robot_base_dir = os.path.dirname(urdf_dir)
+
+        root, fixed_path = fix_mesh_paths(urdf_path, robot_base_dir)
         format_xml(root, fixed_path)
         print(f"Successfully processed URDF: {fixed_path}")
         return fixed_path
@@ -99,6 +99,6 @@ if __name__ == "__main__":
     cwd = os.getcwd()
     urdf_path = os.path.join(
         cwd,
-        "open_phantom/urdf/SO_5DOF_ARM100_05d.SLDASM/urdf/SO_5DOF_ARM100_05d.SLDASM.urdf",
+        "urdf/SO_5DOF_ARM100_05d.SLDASM/urdf/SO_5DOF_ARM100_05d.SLDASM.urdf",
     )
     handle_urdf(urdf_path)

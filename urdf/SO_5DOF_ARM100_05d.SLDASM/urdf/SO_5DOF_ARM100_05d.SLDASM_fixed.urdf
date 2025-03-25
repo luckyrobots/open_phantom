@@ -9,7 +9,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Base.STL"/>
+        <mesh filename="../meshes/Base.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -18,7 +18,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Base.STL"/>
+        <mesh filename="../meshes/Base.STL"/>
       </geometry>
     </collision>
   </link>
@@ -31,7 +31,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Shoulder_Rotation_Pitch.STL"/>
+        <mesh filename="../meshes/Shoulder_Rotation_Pitch.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -40,7 +40,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Shoulder_Rotation_Pitch.STL"/>
+        <mesh filename="../meshes/Shoulder_Rotation_Pitch.STL"/>
       </geometry>
     </collision>
   </link>
@@ -59,7 +59,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Upper_Arm.STL"/>
+        <mesh filename="../meshes/Upper_Arm.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -68,7 +68,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Upper_Arm.STL"/>
+        <mesh filename="../meshes/Upper_Arm.STL"/>
       </geometry>
     </collision>
   </link>
@@ -87,7 +87,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Lower_Arm.STL"/>
+        <mesh filename="../meshes/Lower_Arm.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -96,7 +96,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Lower_Arm.STL"/>
+        <mesh filename="../meshes/Lower_Arm.STL"/>
       </geometry>
     </collision>
   </link>
@@ -115,7 +115,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Wrist_Pitch_Roll.STL"/>
+        <mesh filename="../meshes/Wrist_Pitch_Roll.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -124,7 +124,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Wrist_Pitch_Roll.STL"/>
+        <mesh filename="../meshes/Wrist_Pitch_Roll.STL"/>
       </geometry>
     </collision>
   </link>
@@ -143,7 +143,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Fixed_Gripper.STL"/>
+        <mesh filename="../meshes/Fixed_Gripper.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -152,7 +152,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Fixed_Gripper.STL"/>
+        <mesh filename="../meshes/Fixed_Gripper.STL"/>
       </geometry>
     </collision>
   </link>
@@ -171,7 +171,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Moving_Jaw.STL"/>
+        <mesh filename="../meshes/Moving_Jaw.STL"/>
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
@@ -180,7 +180,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://SO_5DOF_ARM100_05d.SLDASM/meshes/Moving_Jaw.STL"/>
+        <mesh filename="../meshes/Moving_Jaw.STL"/>
       </geometry>
     </collision>
   </link>
