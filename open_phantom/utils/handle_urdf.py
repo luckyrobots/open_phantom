@@ -83,15 +83,24 @@ def handle_urdf(urdf_path: str) -> str:
 
     try:
         urdf_dir = os.path.dirname(urdf_path)
-        robot_base_dir = os.path.dirname(urdf_dir)
 
-        root, fixed_path = fix_mesh_paths(urdf_path, robot_base_dir)
-        format_xml(root, fixed_path)
-        print(f"Successfully processed URDF: {fixed_path}")
-        return fixed_path
+        if urdf_path.endswith("_fixed.urdf"):
+            print("URDF is already fixed. Skipping processing.")
+            fixed_path = urdf_path
+        elif os.path.exists(urdf_path.replace(".urdf", "_fixed.urdf")):
+            print("Fixed URDF already exists. Skipping processing.")
+            fixed_path = urdf_path.replace(".urdf", "_fixed.urdf")
+        else:
+            print("Processing URDF...")
+            robot_base_dir = os.path.dirname(urdf_dir)
+            root, fixed_path = fix_mesh_paths(urdf_path, robot_base_dir)
+            format_xml(root, fixed_path)
+            print(f"Successfully processed URDF: {fixed_path}")
     except Exception as e:
         print(f"Failed to process URDF: {e}")
         raise e
+
+    return fixed_path
 
 
 if __name__ == "__main__":
