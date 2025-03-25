@@ -4,8 +4,13 @@ import numpy as np
 import open3d as o3d
 import mediapipe as mp
 
+from PIL import Image
 from collections import deque
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+from diffusers import StableDiffusionInpaintPipeline, DPMSolverMultistepScheduler
+
+
+# NOTE: Change everything to video processing instead of image processing
 
 
 # TODO: Optimize these constants for better results
@@ -47,6 +52,17 @@ class ProcessHand:
         print("Loading SAM2 model...")
         self.sam2_predictor = SAM2ImagePredictor.from_pretrained(
             "facebook/sam2-hiera-large"
+        )
+
+        print("Loading Diffusion model...")
+        self.inpaint_pipeline = StableDiffusionInpaintPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-2-inpainting",
+            torch_dtype=torch.float16,
+        ).to(self.device)
+        self.inpaint_pipeline.enable_attention_slicing()
+        self.inpaint_pipeline.enable_xformers_memory_efficient_attention()
+        self.inpaint_pipeline.scheduler = DPMSolverMultistepScheduler.from_config(
+            self.inpaint_pipeline.scheduler.config
         )
 
         self.gripper_width_buffer = deque(maxlen=100)
@@ -124,7 +140,8 @@ class ProcessHand:
     ) -> np.ndarray:
         focal_x, focal_y, center_x, center_y = self.camera_intrinsics
 
-        v_coords, u_coords = np.where(segmented_mask > 0)
+        # Find points where we have both valid segmentation and valid depth
+        v_coords, u_coords = np.where((segmented_mask > 0) & (depth_map > 0))
         z_values = depth_map[v_coords, u_coords]
 
         # Filter out zero depth values
@@ -197,7 +214,7 @@ class ProcessHand:
             end_point = np.array(vertices[end_idx])
 
             # Add 2 interpolated points between each connected pair
-            for t in [0.33, 0.66]:
+            for t in [0.25, 0.5, 0.75]:
                 interp_point = start_point * (1 - t) + end_point * t
                 dense_vertices.append(interp_point.tolist())
 
@@ -228,7 +245,7 @@ class ProcessHand:
         result = o3d.pipelines.registration.registration_icp(
             source,
             target,
-            max_correspondence_distance=0.05,
+            max_correspondence_distance=0.025,
             init=trans_init,  # Initial transformation
             estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
             criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
@@ -371,7 +388,7 @@ class ProcessHand:
                 # Scale gripper_width to robot's specific range
                 gripper_width = min(1.0, gripper_width / MAXIMUM_HAND_WIDTH_MM)
 
-        # Convert from camera frame to robot frame
+        # TODO: Convert from camera frame to robot frame
         # Note: This requires the extrinsic matrix from camera to robot
         # If extrinsics are available, uncomment and use this code:
         # if hasattr(self, "camera_to_robot_transform"):
@@ -386,3 +403,36 @@ class ProcessHand:
         #     rotation_matrix = rotation_in_robot_frame
 
         return position, rotation_matrix, gripper_width
+
+    def inpaint_hand(self, frame: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # The mask needs to be inverted for SD inpainting (255 for area to inpaint)
+        inpaint_mask = mask.copy()
+
+        pil_image = Image.fromarray(rgb_image)
+        pil_mask = Image.fromarray(inpaint_mask)
+
+        # Resize if needed (SD works best with smaller images)
+        width, height = pil_image.size
+        max_size = 512
+        if max(width, height) > max_size:
+            scale = max_size / max(width, height)
+            new_size = (int(width * scale), int(height * scale))
+            pil_image = pil_image.resize(new_size)
+            pil_mask = pil_mask.resize(new_size)
+
+            result = self.inpaint_pipeline(
+                prompt="seamless background continuation, consistent lighting and texture, natural scene",
+                negative_prompt="hands, fingers, arms, human body parts, discontinuity, edge artifacts, blurriness, distortion",
+                image=pil_image,
+                mask_image=pil_mask,
+                guidance_scale=7.5,
+            ).images[0]
+
+        if max(width, height) > max_size:
+            result = result.resize((width, height))
+
+        result_np = cv2.cvtColor(np.array(result), cv2.COLOR_RGB2BGR)
+
+        return result_np
