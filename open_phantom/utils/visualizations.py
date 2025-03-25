@@ -78,6 +78,107 @@ def visualize_mesh(
     return mesh_vis
 
 
+def visualize_cloud(cloud: np.ndarray, frame_shape: tuple) -> np.ndarray:
+    width, height = frame_shape[:2]
+    cloud_vis = np.ones((height, width, 3), dtype=np.uint8) * 255  # White background
+
+    if len(cloud) == 0:
+        # Handle empty cloud case
+        cv2.putText(
+            cloud_vis,
+            "No valid points in cloud",
+            (width // 4, height // 2),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 0, 0),
+            2,
+        )
+        return cloud_vis
+
+    # Find min/max for scaling
+    min_vals = np.min(cloud, axis=0)
+    max_vals = np.max(cloud, axis=0)
+
+    # Set margins
+    margin = 50
+    view_width = width - 2 * margin
+    view_height = height - 2 * margin
+
+    # Draw points from top view (X-Y plane)
+    for point in cloud:
+        # Scale X and Y to fit in view
+        x_scaled = (
+            int(
+                ((point[0] - min_vals[0]) / (max_vals[0] - min_vals[0] + 1e-10))
+                * view_width
+            )
+            + margin
+        )
+        y_scaled = (
+            int(
+                ((point[1] - min_vals[1]) / (max_vals[1] - min_vals[1] + 1e-10))
+                * view_height
+            )
+            + margin
+        )
+
+        # Color based on depth (Z value)
+        z_norm = (point[2] - min_vals[2]) / (max_vals[2] - min_vals[2] + 1e-10)
+        color = (
+            int(255 * (1 - z_norm)),  # B - farther points are bluer
+            int(255 * 0.5),  # G - constant green component
+            int(255 * z_norm),  # R - closer points are redder
+        )
+
+        # Draw the point
+        cv2.circle(cloud_vis, (x_scaled, y_scaled), 2, color, -1)
+
+    # Add a color bar for depth
+    bar_width = 20
+    bar_x = width - margin - bar_width
+    bar_y = margin
+    bar_height = height - 2 * margin
+
+    # Draw color gradient bar
+    for i in range(bar_height):
+        z_norm = 1 - (i / bar_height)
+        color = (int(255 * (1 - z_norm)), int(255 * 0.5), int(255 * z_norm))
+        cv2.line(
+            cloud_vis, (bar_x, bar_y + i), (bar_x + bar_width, bar_y + i), color, 1
+        )
+
+    # Add labels
+    cv2.putText(
+        cloud_vis,
+        "Point Cloud",
+        (margin, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 0, 0),
+        2,
+    )
+    cv2.putText(
+        cloud_vis,
+        "Near",
+        (bar_x - 40, bar_y + 15),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (0, 0, 255),
+        1,
+    )
+    cv2.putText(
+        cloud_vis,
+        "Far",
+        (bar_x - 40, bar_y + bar_height - 5),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (255, 0, 0),
+        1,
+    )
+
+    return cloud_vis
+
+
 def visualize_registration(
     cloud: np.ndarray, vertices: np.ndarray, icp_transform: np.ndarray
 ) -> np.ndarray:
