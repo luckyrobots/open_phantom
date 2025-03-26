@@ -22,6 +22,8 @@ Open Phantom is a fully open-source implementation of the approach described in 
 
 Known limitations:
 
+* Camera calibrations
+* Transforming robot to human reference frame
 * In-painting human hand
 * Overlaying robot arm
 * Performance optimizations needed for real-time processing
