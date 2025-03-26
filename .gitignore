@@ -24,6 +24,11 @@ wheels/
 recordings/
 *.txt
 repomix-output.xml
+*.npy
+*.npz
+*.jpeg
+*.png
+*.jpg
 
 # IDE
 .vscode/
